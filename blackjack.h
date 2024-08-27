@@ -7,6 +7,9 @@
 
 // -- SPECIFIC RULES -- 
 #define BLACKJACK_RATIO 1.5  // Payout ratio 3:2 = 1.5
+#define MAX_ALLOWED_SPLITS 4  //4 is typical for most casinos
+#define MIN_BET_ALLOWED 20.0 // Minimum bet
+#define INSTANT_BLACKJACK_PAYOUT 1 //Does blackjack instantly pay out? 1 - yes, 0 - no
 
 // Card structure
 typedef struct {
@@ -20,6 +23,14 @@ typedef struct {
     int top_card; 
 } Deck;
 
+//Hand Structure
+typedef struct {
+    Card hands[21];
+    int stillPlaying;
+    int no_cards;
+    int outcome;
+} Hand;
+
 
 // Function declarations
 Deck create_deck();
@@ -30,6 +41,8 @@ void print_hand(Card* hand, int size, int isPlayer);
 Card* duplicate_deck(Card *original_deck, int size);
 int compare_cards(const void *a, const void *b);
 int getHandValue(Card* hand, int no_cards, int* isSoft);
+void checkHand(Card* hand, int no_cards, int* outcome);
+int checkIfSplittable(Card* hand);
 void playBlackjack(Deck deck, double start_balance, int no_hands);
 
 #endif
