@@ -1,16 +1,14 @@
 CC = gcc
 CFLAGS = -Wall -Wextra -std=c99
 
-all: blackjack
+TESTDIR = tests
+SRCDIR = core
 
-blackjack: driver.o blackjack.o
-	$(CC) $(CFLAGS) -o blackjack driver.o blackjack.o
+test_deck: test_deck.o deck.h
+	$(CC) $(CFLAGS) test_deck.o -o test_deck
 
-driver.o: driver.c blackjack.h
-	$(CC) $(CFLAGS) -c driver.c
-
-blackjack.o: blackjack.c blackjack.h
-	$(CC) $(CFLAGS) -c blackjack.c
+test_deck.o: test_deck.c
+	$(CC) $(CFLAGS) -c test_deck.c -o test_deck.o
 
 clean:
 	rm -f *.o blackjack
