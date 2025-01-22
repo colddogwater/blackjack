@@ -2,6 +2,10 @@
 #include <stdlib.h>
 #include "deck.h"
 
+//ITOS arrays for rank and suit
+const char *RANK_NAMES[NUM_RANKS] = {"2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"};
+const char *SUIT_NAMES[NUM_SUITS] = {"Hearts", "Diamonds", "Clubs", "Spades"};
+
 // Create a new deck in order
 Deck create_deck() {
     Deck deck;
@@ -39,13 +43,11 @@ Card draw_card(Deck *deck) {
     }
 }
 
-// Duplicates the deck
-Card* duplicate_deck(Card *original_deck, int size) {
-    Card *new_deck = (Card *)malloc(size * sizeof(Card));
-    if (new_deck == NULL) {
-        perror("Failed to allocate memory for new deck");
-        exit(EXIT_FAILURE);
+// Function to print a card
+void print_card(Card card) {
+    if (card.rank >= 0 && card.suit >= 0) {
+        printf("%s of %s\n", RANK_NAMES[card.rank], SUIT_NAMES[card.suit]);
+    } else {
+        printf("Invalid card\n");
     }
-    memcpy(new_deck, original_deck, size * sizeof(Card));
-    return new_deck;
 }
