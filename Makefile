@@ -6,9 +6,10 @@ CFLAGS = -Wall -Wextra -std=c99
 SRCDIR = core
 TESTDIR = tests
 BUILDDIR = build
+CLIDIR = cli
 
 # Source files
-SRCS = $(SRCDIR)/deck.c $(SRCDIR)/hand.c $(SRCDIR)/game.c
+SRCS = $(SRCDIR)/deck.c $(SRCDIR)/hand.c $(SRCDIR)/game.c $(CLIDIR)/cli_interface.c main.c
 OBJS = $(SRCS:.c=.o)
 TESTS = $(TESTDIR)/test_deck.c $(TESTDIR)/test_hand.c $(TESTDIR)/test_game.c
 
@@ -38,11 +39,11 @@ test_game: $(TEST_GAME_OBJ)
 	$(CC) $(CFLAGS) $^ -o test_game
 
 # Compile test object files
-$(TESTDIR)/%.o: $(TESTDIR)/%.c $(SRCDIR)/deck.h $(SRCDIR)/hand.h $(SRCDIR)/game.h
+$(TESTDIR)/%.o: $(TESTDIR)/%.c $(SRCDIR)/deck.h $(SRCDIR)/hand.h $(SRCDIR)/game.h $(CLIDIR)/cli_interface.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # Compile source object files
-$(SRCDIR)/%.o: $(SRCDIR)/%.c $(SRCDIR)/deck.h $(SRCDIR)/hand.h $(SRCDIR)/game.h
+$(SRCDIR)/%.o: $(SRCDIR)/%.c $(SRCDIR)/deck.h $(SRCDIR)/hand.h $(SRCDIR)/game.h $(CLIDIR)/cli_interface.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # Clean up all compiled files
