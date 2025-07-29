@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Categorized Blackjack Decision Heatmap</title>
+    <!-- Tailwind CSS CDN for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for the decision heatmap tables */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            padding: 2rem;
+            box-sizing: border-box;
+        }
+        .container {
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            padding: 2rem;
+            max-width: 1400px; /* Increased max-width to fit three tables */
+            width: 100%;
+            overflow-x: auto; /* Allow horizontal scrolling if container is still too narrow */
+        }
+        /* Flex container for the tables */
+        .tables-wrapper {
+            display: flex;
+            flex-wrap: wrap; /* Allow tables to wrap to next line on smaller screens */
+            gap: 1.5rem; /* Space between tables */
+            justify-content: center; /* Center tables when they wrap */
+            margin-top: 1.5rem;
+            align-items: flex-start; /* Aligns items to the start of the cross-axis, preventing vertical stretching */
+        }
+        table {
+            flex: 1 1 30%; /* Allow tables to grow/shrink, base 30% width for 3 tables */
+            min-width: 280px; /* Minimum width for each table to prevent squishing */
+            border-collapse: collapse;
+            font-size: 0.75rem; /* Smaller font size for compactness */
+            margin-bottom: 0; /* Remove bottom margin as gap handles spacing */
+        }
+        th, td {
+            border: 1px solid #e5e7eb;
+            padding: 0.3rem 0.4rem; /* Reduced padding for compactness */
+            text-align: center;
+            white-space: nowrap; /* Keep text on single line for decisions */
+        }
+        th {
+            background-color: #f9fafb;
+            font-weight: 600;
+            color: #374151;
+        }
+        td {
+            color: #1f2937;
+            font-weight: bold; /* Make decision letters stand out */
+        }
+        /* Style for the first column (player hands) */
+        td:first-child {
+            background-color: #f3f4f6;
+            font-weight: 500;
+            text-align: left;
+            position: sticky;
+            left: 0;
+            z-index: 1;
+        }
+        th:first-child {
+            position: sticky;
+            left: 0;
+            z-index: 2;
+        }
+        /* Hover effect for interactivity */
+        td:hover {
+            opacity: 0.8;
+            transition: opacity 0.2s ease-in-out;
+        }
+        .loading-message, .error-message {
+            text-align: center;
+            padding: 1rem;
+            font-size: 1.1rem;
+            color: #4a5568;
+        }
+        .error-message {
+            color: #e53e3e;
+            font-weight: bold;
+        }
+        .table-section-title {
+            font-size: 1.25rem; /* text-xl, smaller for side-by-side */
+            font-weight: 700; /* font-bold */
+            text-align: center;
+            color: #1f2937; /* text-gray-900 */
+            margin-top: 0; /* Adjusted margin */
+            margin-bottom: 0.75rem; /* mb-3 */
+        }
+        /* Style for individual table wrappers to hold title and table */
+        .table-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1 1 30%; /* Same flex properties as table */
+            min-width: 280px; /* Same min-width as table */
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-3xl font-bold text-center text-gray-800 mb-6">Blackjack Optimal Decisions Heatmap</h1>
+        <p class="text-base text-gray-600 mb-6 text-center">
+            This heatmap displays the optimal basic strategy decision for various player hand and dealer up-card combinations,
+            categorized for easier understanding.
+            <br>
+            Each cell indicates the best action:
+            <span class="font-semibold" style="color: #3B82F6;">H (Hit)</span>,
+            <span class="font-semibold" style="color: #10B981;">S (Stand)</span>,
+            <span class="font-semibold" style="color: #F59E0B;">D (Double)</span>,
+            <span class="font-semibold" style="color: #8B5CF6;">X (Split)</span>.
+        </p>
+
+        <div id="heatmap-container" class="mt-8">
+            <p class="loading-message">Loading decision data...</p>
+            <!-- Decision heatmap tables will be generated here by JavaScript -->
+            <div class="tables-wrapper">
+                <!-- Tables will be dynamically added here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Define the card ranks. '10' is replaced with 'J'.
+        const d_ranks = ['2', '3', '4', '5', '6', '7', '8', '9', 'J', 'A'];
+
+        // Helper to get card value for sorting (A=11, J=10, others as face value)
+        const getCardValueForSorting = (card) => {
+            if (card === 'A') return 11; // Treat Ace as 11 for sum calculation
+            if (card === 'J') return 10; // 'J' represents 10
+            return parseInt(card);
+        };
+
+        // Function to generate and categorize all player hand keys
+        function generateAndCategorizePlayerKeys(ranks) {
+            const allCombinations = new Set(); // Use a Set to automatically handle duplicates
+
+            // Generate all unique two-card combinations (sorted within hand for consistent keys)
+            for (let i = 0; i < ranks.length; i++) {
+                for (let j = i; j < ranks.length; j++) {
+                    const card1 = ranks[i];
+                    const card2 = ranks[j];
+
+                    let handKey;
+                    // For soft hands, ensure 'A' comes first (e.g., A,2 not 2,A)
+                    if (card1 === 'A' && card2 !== 'A') {
+                        handKey = `${card1},${card2}`;
+                    } else if (card2 === 'A' && card1 !== 'A') {
+                        handKey = `${card2},${card1}`;
+                    } else {
+                        // For other hands, ensure the smaller value comes first for consistency
+                        if (getCardValueForSorting(card1) <= getCardValueForSorting(card2)) {
+                            handKey = `${card1},${card2}`;
+                        } else {
+                            handKey = `${card2},${card1}`;
+                        }
+                    }
+                    allCombinations.add(handKey);
+                }
+            }
+
+            const pairs = [];
+            const softTotals = [];
+            const hardTotals = [];
+
+            // Convert Set to Array for iteration and sorting
+            const sortedAllCombinations = Array.from(allCombinations).sort((a, b) => {
+                // A preliminary sort to help with consistent categorization and debugging
+                const [a1, a2] = a.split(',');
+                const [b1, b2] = b.split(',');
+                const sumA = getCardValueForSorting(a1) + getCardValueForSorting(a2);
+                const sumB = getCardValueForSorting(b1) + getCardValueForSorting(b2);
+
+                if (sumA !== sumB) return sumA - sumB;
+                return a.localeCompare(b);
+            });
+
+
+            sortedAllCombinations.forEach(hand => {
+                const [c1, c2] = hand.split(',');
+
+                if (c1 === c2) { // It's a pair (e.g., 2,2; A,A)
+                    pairs.push(hand);
+                } else if (c1 === 'A' || c2 === 'A') { // It's a soft total (e.g., A,2; A,7)
+                    softTotals.push(hand);
+                } else { // It's a hard total (e.g., 10,5; 7,8)
+                    hardTotals.push(hand);
+                }
+            });
+
+            // Sort Pairs: by card rank (2,2 -> 3,3 -> ... -> J,J -> A,A)
+            pairs.sort((a, b) => {
+                const cardA = a.split(',')[0];
+                const cardB = b.split(',')[0];
+                return getCardValueForSorting(cardA) - getCardValueForSorting(cardB);
+            });
+
+            // Sort Soft Totals: by the non-Ace card (A,2 -> A,3 -> ... -> A,J)
+            softTotals.sort((a, b) => {
+                const nonAceA = a.split(',').find(card => card !== 'A');
+                const nonAceB = b.split(',').find(card => card !== 'A');
+                // Handle cases where nonAce might be undefined if A,A was mistakenly in softTotals (shouldn't happen with current logic)
+                if (!nonAceA || !nonAceB) return 0;
+                return getCardValueForSorting(nonAceA) - getCardValueForSorting(nonAceB);
+            });
+
+            // Sort Hard Totals: by sum, then by the smaller card (e.g., 2,3 -> 2,4 -> 3,4)
+            hardTotals.sort((a, b) => {
+                const [a1, a2] = a.split(',');
+                const [b1, b2] = b.split(',');
+                const sumA = getCardValueForSorting(a1) + getCardValueForSorting(a2);
+                const sumB = getCardValueForSorting(b1) + getCardValueForSorting(b2);
+
+                if (sumA !== sumB) return sumA - sumB;
+
+                // If sums are equal, sort by the minimum card value first, then maximum
+                const minA = Math.min(getCardValueForSorting(a1), getCardValueForSorting(a2));
+                const minB = Math.min(getCardValueForSorting(b1), getCardValueForSorting(b2));
+                if (minA !== minB) return minA - minB;
+
+                const maxA = Math.max(getCardValueForSorting(a1), getCardValueForSorting(a2));
+                const maxB = Math.max(getCardValueForSorting(b1), getCardValueForSorting(b2));
+                return maxA - maxB;
+            });
+
+            return { pairs, softTotals, hardTotals };
+        }
+
+        // Generate the categorized and sorted player keys
+        const { pairs, softTotals, hardTotals } = generateAndCategorizePlayerKeys(d_ranks);
+
+        // Define colors for each decision
+        const decisionColors = {
+            'H': '#3B82F6',   // Blue for Hit
+            'S': '#10B981',   // Green for Stand
+            'D': '#F59E0B',   // Amber/Orange for Double
+            'X': '#8B5CF6',   // Purple for Split
+            'N/A': '#F8F8F8'  // Light grey for missing data
+        };
+
+        /**
+         * Gets the background color for a cell based on the decision.
+         * @param {string} decision - The decision character (H, S, D, X, or N/A).
+         * @returns {string} - CSS color string.
+         */
+        function getColorForDecision(decision) {
+            return decisionColors[decision] || decisionColors['N/A'];
+        }
+
+        /**
+         * Renders a single decision heatmap table for a given category.
+         * @param {HTMLElement} tablesWrapperElement - The wrapper element to append the table to.
+         * @param {string} title - The title for this table.
+         * @param {Object} rawDecisionData - The raw dictionary containing optimal decisions.
+         * @param {Array<string>} categoryPlayerKeys - The sorted list of player keys for this category.
+         */
+        function renderCategoryTable(tablesWrapperElement, title, rawDecisionData, categoryPlayerKeys) {
+            const tableWrapper = document.createElement('div');
+            tableWrapper.className = 'table-wrapper'; // Apply flex properties to wrapper
+
+            const titleElement = document.createElement('h2');
+            titleElement.className = 'table-section-title';
+            titleElement.textContent = title;
+            tableWrapper.appendChild(titleElement);
+
+            const table = document.createElement('table');
+            table.className = 'min-w-full divide-y divide-gray-200 rounded-lg overflow-hidden';
+
+            // Create table header
+            const thead = document.createElement('thead');
+            const headerRow = document.createElement('tr');
+
+            const firstHeaderTh = document.createElement('th');
+            firstHeaderTh.textContent = 'Hand \\ Dlr'; /* Shorter header for compactness */
+            firstHeaderTh.className = 'px-2 py-1 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase rounded-tl-lg';
+            headerRow.appendChild(firstHeaderTh);
+
+            d_ranks.forEach(dealerCard => {
+                const th = document.createElement('th');
+                th.textContent = dealerCard;
+                th.className = 'px-2 py-1 bg-gray-50 text-center text-xs font-medium text-gray-500 uppercase';
+                headerRow.appendChild(th);
+            });
+            headerRow.lastChild.classList.add('rounded-tr-lg');
+            thead.appendChild(headerRow);
+            table.appendChild(thead);
+
+            // Create table body
+            const tbody = document.createElement('tbody');
+            tbody.className = 'bg-white divide-y divide-gray-200';
+
+            // Check if there's any data for this category
+            if (categoryPlayerKeys.length === 0) {
+                const tr = document.createElement('tr');
+                const td = document.createElement('td');
+                td.colSpan = d_ranks.length + 1; // Span across all columns
+                td.textContent = 'No data available.';
+                td.className = 'px-2 py-2 text-center text-gray-500 italic';
+                tr.appendChild(td);
+                tbody.appendChild(tr);
+            } else {
+                // Iterate through the sorted player keys for this specific category
+                categoryPlayerKeys.forEach((playerHand, index) => {
+                    const tr = document.createElement('tr');
+                    tr.className = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+
+                    // First cell for player hand label
+                    const playerHandTd = document.createElement('td');
+                    // Display "2 2" instead of "2,2" for readability
+                    playerHandTd.textContent = playerHand.split(',').join(' ');
+                    playerHandTd.className = 'px-2 py-1 whitespace-nowrap text-xs font-medium text-gray-900'; /* Smaller font for hand label */
+                    tr.appendChild(playerHandTd);
+
+                    // Cells for decisions
+                    d_ranks.forEach(dealerCard => {
+                        const td = document.createElement('td');
+                        let key = `${playerHand}|${dealerCard}`; // Initial key (e.g., A,J|2)
+                        let decision = rawDecisionData[key];
+
+                        // Special handling for Soft Totals: try flipped key if original key not found
+                        if (title === 'Soft Totals Strategy' && decision === undefined) {
+                            const [c1, c2] = playerHand.split(',');
+                            const flippedHand = `${c2},${c1}`; // Create flipped hand (e.g., J,A)
+                            const flippedKey = `${flippedHand}|${dealerCard}`; // Create flipped key (e.g., J,A|2)
+                            decision = rawDecisionData[flippedKey]; // Try looking up with flipped key
+                            // console.log(`Soft Total Debug: Original Key='${key}', Flipped Key='${flippedKey}'. Found decision: '${decision}'`);
+                        }
+
+                        decision = decision || 'N/A'; // Default to N/A if still not found
+
+                        td.textContent = decision;
+                        td.style.backgroundColor = getColorForDecision(decision);
+
+                        // Adjust text color for better contrast on dark backgrounds
+                        if (['H', 'S', 'D', 'X'].includes(decision)) {
+                            td.style.color = 'white';
+                        } else {
+                            td.style.color = '#6b7280'; // Default for N/A
+                        }
+
+                        td.className += ' whitespace-nowrap text-xs'; /* Smaller font for decision */
+                        tr.appendChild(td);
+                    });
+                    tbody.appendChild(tr);
+                });
+            }
+
+            table.appendChild(tbody);
+            tableWrapper.appendChild(table);
+            tablesWrapperElement.appendChild(tableWrapper);
+        }
+
+        // Function to load and process the JSON data
+        async function loadBlackjackData() {
+            const heatmapContainer = document.getElementById('heatmap-container');
+            heatmapContainer.innerHTML = '<p class="loading-message">Loading decision data...</p>';
+
+            try {
+                const response = await fetch('data/decisions.json'); // Fetching decisions.json
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const rawDecisionData = await response.json();
+
+                // Check if the loaded JSON data is empty
+                if (Object.keys(rawDecisionData).length === 0) {
+                    heatmapContainer.innerHTML = `
+                        <p class="error-message">The 'decisions.json' file was loaded but appears to be empty.</p>
+                        <p class="error-message text-base mt-2">
+                            Please ensure your Python script correctly populates 'decisions.json' with data.
+                        </p>
+                    `;
+                    return;
+                }
+
+                // Clear the loading message and prepare the tables wrapper
+                heatmapContainer.innerHTML = '';
+                const tablesWrapper = document.createElement('div');
+                tablesWrapper.className = 'tables-wrapper';
+                heatmapContainer.appendChild(tablesWrapper);
+
+                // Render the three tables into the wrapper
+                renderCategoryTable(tablesWrapper, 'Pairs Strategy', rawDecisionData, pairs);
+                renderCategoryTable(tablesWrapper, 'Hard Totals Strategy', rawDecisionData, hardTotals);
+                renderCategoryTable(tablesWrapper, 'Soft Totals Strategy', rawDecisionData, softTotals);
+
+            } catch (error) {
+                console.error("Could not load decisions.json:", error);
+                heatmapContainer.innerHTML = `
+                    <p class="error-message">Failed to load decisions.json.</p>
+                    <p class="error-message text-base mt-2">
+                        <strong>Error details:</strong> ${error.message}
+                        <br>
+                        <strong>Possible reasons & solutions:</strong>
+                        <br>
+                        1. <strong>File not found:</strong> Ensure your JSON file is named <code>decisions.json</code> and is in the same directory as this HTML file.
+                        <br>
+                        2. <strong>JSON format error:</strong> Verify that your JSON file is valid (e.g., no trailing commas, correct syntax).
+                        <br>
+                        3. <strong>Server not running:</strong> If running locally, ensure your web server is running in the correct directory.
+                        <br>
+                        4. <strong>Network issues:</strong> Check your browser's developer console (F12 -> Network tab) for more specific error details like 404 Not Found.
+                    </p>
+                `;
+            }
+        }
+
+        // Load the data and render the heatmap when the window loads
+        window.onload = loadBlackjackData;
+    </script>
+</body>
+</html>
