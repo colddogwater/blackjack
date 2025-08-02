@@ -1,0 +1,17 @@
+# Ignore all .json files in data/
+data/*.json
+
+# Ignore SQLite and other DBs
+*.db
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Jupyter notebooks
+*.ipynb_checkpoints/
+*.ipynb
+
+# macOS or IDE-specific
+.DS_Store
+.vscode/

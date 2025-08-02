@@ -2,7 +2,8 @@
 
 #------------- RULES
 # Modify to suit your casino
-NO_DECKS = 1
+NO_DECKS = 6
 BJ_PAYOUT = 3/2
-INSTANT_PAYOUT = False
-STAND_22 = False
+INSTANT_PAYOUT = True
+STAND_22 = True
+

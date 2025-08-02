@@ -4,7 +4,6 @@ from core import rules
 RANKS = ['2', '3', '4', '5', '6', '7', '8', '9', 'J', 'A']
 NO_RANKS= ['4', '4', '4', '4', '4', '4', '4', '4', '16', '4']
 RANK_TO_VALUE = {'2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, 'J': 10, 'A': 11}
-DECK = 4 * RANKS
 
 # Main logic for iterating through all hands and calculating
 def analyse_blackjack(stand_EVs, double_EVs, hit_EVs, split_EVs, decision_chart):
@@ -25,7 +24,7 @@ def analyse_blackjack(stand_EVs, double_EVs, hit_EVs, split_EVs, decision_chart)
                 else:
                     stand_EVs[key] = get_expected_value(standing_tree, player_hand,[dealer_card], 1, 1)
                     double_EVs[key] = get_expected_value(double_tree, player_hand,[dealer_card], 2, 2)
-                    hit_EVs[key] = get_expected_value(hitting_tree, player_hand,[dealer_card], 1, 1)
+                    hit_EVs[key] = get_expected_valueH(hitting_tree, player_hand,[dealer_card], stand_EVs, hit_EVs, decision_chart, 1, 1)
     
     # Splitting requires all other dictionaries to already be populated
     # Thus has to be another loop :(
@@ -145,7 +144,7 @@ def double_tree(player_cards, dealer_cards):
 # hitting odds aswell so that down the line you can analyze any possible situation you are in
 # I.e. If I have [6][6] and dealer shows [10] maybe hitting is best option, so you hit and recieve a 2
 # Question is now  what is the new best decision for the following state P=[6][6]][2], D=[10]?
-def hitting_tree(player_cards, dealer_cards):
+def hitting_tree(player_cards, dealer_cards, stand_EVs, hit_EVs, decision_chart):
     prob_win = 0
     prob_lose = 0 
     prob_push = 0
@@ -155,28 +154,43 @@ def hitting_tree(player_cards, dealer_cards):
     for i, potential_card in enumerate(RANKS):
         possible_hand = player_cards + [potential_card]
 
-        probability_of_card = get_card_prob(all_cards, potential_card, i)
-        
-        if (get_hand_value(possible_hand) > 21):
-            prob_lose += probability_of_card
-        elif (len(possible_hand) == 5): # 5 Card Charlie
-            prob_win += probability_of_card
-        else:
-            prob_win_stand, prob_lose_stand, prob_push_stand = standing_tree(possible_hand, dealer_cards)
-            prob_win_hit, prob_lose_hit, prob_push_hit = hitting_tree(possible_hand, dealer_cards)
-
-            EV_stand = prob_win_stand - prob_lose_stand
-            EV_hit = prob_win_hit - prob_lose_hit
-
-            # check whether its more likely to stand or hit
-            if (EV_hit > EV_stand):
-                prob_win += prob_win_hit * probability_of_card
-                prob_lose += prob_lose_hit * probability_of_card
-                prob_push += prob_push_hit * probability_of_card    
+        # Exhausted the cards so probability is 0
+        # I think this only is required for 1 deck and if 5 card charlie is not a rule
+        if (int(all_cards.count(potential_card)) < int(rules.NO_DECKS * NO_RANKS[i])):
+            probability_of_card = get_card_prob(all_cards, potential_card, i)
+            
+            if (get_hand_value(possible_hand) > 21):
+                prob_lose += probability_of_card
+            elif (len(possible_hand) == 5): # 5 Card Charlie
+                prob_win += probability_of_card
             else:
-                prob_win += prob_win_stand * probability_of_card
-                prob_lose += prob_lose_stand * probability_of_card
-                prob_push += prob_push_stand * probability_of_card
+                prob_win_stand, prob_lose_stand, prob_push_stand = standing_tree(possible_hand, dealer_cards)
+                prob_win_hit, prob_lose_hit, prob_push_hit = hitting_tree(possible_hand, dealer_cards, stand_EVs, hit_EVs, decision_chart)
+
+                EV_stand = prob_win_stand - prob_lose_stand
+                EV_hit = prob_win_hit - prob_lose_hit
+
+                #While we here lets populate the dictionary too
+                key = ''
+                for card in possible_hand:
+                    key = key + card + ","
+                key = key[:-1]
+                key = key + "|" + dealer_cards[0]
+
+                stand_EVs[key] = EV_stand
+                hit_EVs[key] = EV_hit
+
+                # check whether its more likely to stand or hit
+                if (EV_hit > EV_stand):
+                    decision_chart[key] = 'H'
+                    prob_win += prob_win_hit * probability_of_card
+                    prob_lose += prob_lose_hit * probability_of_card
+                    prob_push += prob_push_hit * probability_of_card    
+                else:
+                    decision_chart[key] = 'S'
+                    prob_win += prob_win_stand * probability_of_card
+                    prob_lose += prob_lose_stand * probability_of_card
+                    prob_push += prob_push_stand * probability_of_card
             
     return prob_win, prob_lose, prob_push
 
@@ -244,4 +258,8 @@ def get_card_prob(all_cards, card, i):
 
 def get_expected_value(tree_function, player_cards, dealer_cards, win_constant, lose_constant):
     prob_win, prob_lose, prob_push = tree_function(player_cards, dealer_cards)
+    return (win_constant * prob_win) - (lose_constant * prob_lose)
+
+def get_expected_valueH(tree_function, player_cards, dealer_cards, stand_EVs, hit_EVs, decision_chart ,win_constant, lose_constant):
+    prob_win, prob_lose, prob_push = tree_function(player_cards, dealer_cards, stand_EVs, hit_EVs, decision_chart)
     return (win_constant * prob_win) - (lose_constant * prob_lose)
