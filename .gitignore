@@ -3,6 +3,7 @@ data/*.json
 
 # Ignore SQLite and other DBs
 *.db
+*.data
 
 # Python cache
 __pycache__/
