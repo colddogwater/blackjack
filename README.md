@@ -26,7 +26,7 @@ python main.py
 
 ## Results
 Snippet showcasing the expected value tables generated and visualised by the HTML files.
-![EV Website](/imgs/ev.png)
+![EV Website](/imgs/evs.png)
 Another snippet showcasing the strategy tables indicating the optimal decision for every starting hand.
 ![Strat Website](/imgs/strat.png)
 All this data is stored into the `blackjack_stats.db` which can easily be opened in SQL and queried to gain more insight.
