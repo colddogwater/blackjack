@@ -154,15 +154,23 @@ def player_turn(player_hands, dealer_hand, DECK, decision_chart, split_depth=0):
                     else:
                         curr_hand.status = Hand.STANDING
                 case 'X': # Splitting
-                    # Not implemented yet
-                    split_hand = Hand([curr_hand.cards.pop()])
-                    split_hand.cards.extend(DECK.pop())
-                    curr_hand.cards.extend(DECK.pop())
-                    #print("Successfully split into " + str(curr_hand.cards) + " and " +str(split_hand.cards))
+                    if (curr_hand.cards == ['A','A']):
+                        split_hand = Hand([curr_hand.cards.pop()])
+                        split_hand.cards.extend(DECK.pop())
+                        curr_hand.cards.extend(DECK.pop())
 
-                    split_index = split_depth + 1
-                    player_hands.extend([split_hand])
-                    player_turn(player_hands, dealer_hand, DECK, decision_chart, split_index)
+                        curr_hand.status = Hand.STANDING
+                        split_hand.status = Hand.STANDING
+                        player_hands.extend([split_hand])
+                    else:
+                        split_hand = Hand([curr_hand.cards.pop()])
+                        split_hand.cards.extend(DECK.pop())
+                        curr_hand.cards.extend(DECK.pop())
+                        #print("Successfully split into " + str(curr_hand.cards) + " and " +str(split_hand.cards))
+
+                        split_index = split_depth + 1
+                        player_hands.extend([split_hand])
+                        player_turn(player_hands, dealer_hand, DECK, decision_chart, split_index)
                     
 
     return 0
