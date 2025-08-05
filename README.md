@@ -32,9 +32,15 @@ Another snippet showcasing the strategy tables indicating the optimal decision f
 All this data is stored into the `blackjack_stats.db` which can easily be opened in SQL and queried to gain more insight.
 ![SQL Data](/imgs/sql_showcase.png)
 
-### Simulations
-![Common BJ Rules](/imgs/normal.png)
-Simulated balance results from most common blackjack rules using the optimal strategy table generated.
+## Simulations
+### Normal Blackjack House Rules
+![Common BJ Rules](/imgs/6deck_normal.png)
+Simulated balance results from most common blackjack rules using the optimal strategy table generated. 
 
-![Crown BJ Rules](/imgs/crown.png)
-Simulated balance results from crown blackjack rules using the optimal strategy table generated. The modified rules allow the dealer to stand on 22 but also allows them to instantly pay out for blackjack. As you can see just this small change yields a negative expected value.
+### Crown Casino Perth Blackjack House Rules
+![Crown BJ Rules](/imgs/6deck_CrownRules.png)
+Only changed:
+- Dealer stands on 22
+- Reaching 21 instantly pays out the player
+
+Even with two small rule changes, even one of them favouring the player, the house edge increases by an order of magnitude!

@@ -23,7 +23,7 @@ if __name__ == "__main__":
 
         decision_chart = json_to_dict("data/decisions.json")
 
-        run_simulation(decision_chart ,100000)
+        run_simulation(decision_chart ,1000000)
     else:
         print("Data does not exist!")
         print("Generating now...")

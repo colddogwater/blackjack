@@ -1,6 +1,18 @@
 import random
 from core import rules
 from core.logic import get_hand_value
+    
+class Hand:
+    ALIVE = 0
+    BUSTED = -1
+    WIN = 1
+    DOUBLE = 2
+    STANDING = 3
+
+    def __init__(self, cards=None, status=0, win_amount=1):
+        self.cards = cards if cards is not None else []
+        self.status = status
+        self.win_amount = win_amount
 
 def run_simulation(decision_chart, no_steps):
     balance = 0
@@ -20,6 +32,9 @@ def run_simulation(decision_chart, no_steps):
         player_cards.extend(DECK.pop())
 
         dealer_cards.extend(DECK.pop())
+
+        #player_cards = ['6','6']
+        #dealer_cards = ['5']
 
         #print("Player hand: " + str(player_cards) + "Dealer hand: " + str(dealer_cards))
         #print("Cards in deck: " + str(len(DECK)))
@@ -41,7 +56,7 @@ def run_simulation(decision_chart, no_steps):
         #print("Cards in shoe: " + str(len(discard_pile)))
 
         # If length of discard pile is bigger than 20% of the pile reshuffle 
-        if len(discard_pile) > (0.2 * 52 * rules.NO_DECKS):
+        if len(discard_pile) > (0.1 * 52 * rules.NO_DECKS):
             #print("Reshuffling")
             DECK.extend(discard_pile)
             random.shuffle(DECK)
@@ -49,89 +64,138 @@ def run_simulation(decision_chart, no_steps):
 
         player_cards = []
         dealer_cards = []
-
-
+ 
 def game_loop(player_cards, dealer_cards, DECK, decision_chart):
-    win_amount = None
+    win_amount = 0
+    #Create player_hands array to hold all future potential splits
+    initial_hand = Hand(player_cards)
+    dealer_hand = Hand(dealer_cards)
 
-    while win_amount == None:
+    #player_hands = [None] * 6
+    player_hands = [initial_hand]
+    
+    # Updates hand for
+    # Populates player_hands (if player splits) and also determines the end state of every hand
+    player_turn(player_hands, dealer_hand, DECK, decision_chart)
+    #player_hands will be populated with hands
+    # each hand will have a gamestate, alive or bust, doubled or blackjack win etc etc
+   
+    if(player_hands[0].status == Hand.BUSTED):
+        #print("Player busted, skipping dealer drawing")
+        win_amount = player_hands[0].win_amount * -1
+    else:
+        # Draw dealer cards
+        while (get_hand_value(dealer_hand.cards) < 17):
+            dealer_hand.cards.extend(DECK.pop())
+
+        #print("Dealer Hits to: " + str(dealer_hand.cards))
+
+        for hand in player_hands:
+            #print("---- Hand")
+            win_amount += final_decision(hand, dealer_hand.cards, DECK)
+
+    return win_amount
+
+
+
+def player_turn(player_hands, dealer_hand, DECK, decision_chart, split_depth=0):
+    curr_hand = player_hands[split_depth]
+
+    while curr_hand.status == Hand.ALIVE:
         #print("Player cards: " + str(player_cards))
-        hand_value = get_hand_value(player_cards)
+        hand_value = get_hand_value(curr_hand.cards)
         if hand_value == 21 and rules.INSTANT_PAYOUT:
-            win_amount = rules.BJ_PAYOUT
+            curr_hand.status = Hand.WIN
+            # Only pays BJ Ratio if its 2 cards
+            if len(curr_hand.cards) == 2:
+                curr_hand.win_amount = rules.BJ_PAYOUT
         elif hand_value > 21:
-            win_amount = -1
-        elif len(player_cards) == 5: # 5 Card Charlie
-            win_amount = 1
+            curr_hand.status = Hand.BUSTED
+        elif len(curr_hand.cards) == 5: # 5 Card Charlie
+            curr_hand.status = Hand.WIN
         else:
+            #How the dictionary was populated removes duplicates
+            # i.e. dict['A,J'] may exist but dict['J,A'] does not
             try:
                 key = ''
-                for card in player_cards:
+                for card in curr_hand.cards:
                     key = key + card + ","
                 key = key[:-1]
-                key = key + "|" + dealer_cards[0]
+                key = key + "|" + dealer_hand.cards[0]
 
                 bot_decision = decision_chart[key]
             except KeyError:
                 key = ''
-                for card in reversed(player_cards):
+                for card in reversed(curr_hand.cards):
                     key = key + card + ","
                 key = key[:-1]
-                key = key + "|" + dealer_cards[0]
+                key = key + "|" + dealer_hand.cards[0]
 
                 bot_decision = decision_chart[key]
 
             match bot_decision:
                 case 'H': # Hitting
                     #print("Hitting")
-                    player_cards.extend(DECK.pop())
+                    curr_hand.cards.extend(DECK.pop())
+                    #print("New player hand: " + str(curr_hand.cards))
                 case 'S': # Standing
                     #print("Standing")
-                    win_amount = final_decision(player_cards, dealer_cards, DECK)
+                    curr_hand.status = Hand.STANDING
+                    #win_amount = final_decision(player_cards, dealer_cards, DECK)
                 case 'D': # Doubling
                     #print("Doubling")
-                    player_cards.extend(DECK.pop())
-                    if (get_hand_value(player_cards) > 21):
-                        win_amount = -2
-                    elif (get_hand_value(player_cards) == 21 and rules.INSTANT_PAYOUT):
-                        win_amount = 2
+                    curr_hand.cards.extend(DECK.pop())
+                    curr_hand.win_amount = 2
+                    #print("New player hand: " + str(curr_hand.cards))
+                    if (get_hand_value(curr_hand.cards) > 21):
+                        curr_hand.status = Hand.BUSTED
+                    elif (get_hand_value(curr_hand.cards) == 21 and rules.INSTANT_PAYOUT):
+                        curr_hand.status = Hand.WIN
                     else:
-                        win_amount =  2 * final_decision(player_cards, dealer_cards, DECK)
+                        curr_hand.status = Hand.STANDING
                 case 'X': # Splitting
                     # Not implemented yet
-                    win_amount = 0
-    return win_amount
+                    split_hand = Hand([curr_hand.cards.pop()])
+                    split_hand.cards.extend(DECK.pop())
+                    curr_hand.cards.extend(DECK.pop())
+                    #print("Successfully split into " + str(curr_hand.cards) + " and " +str(split_hand.cards))
 
-def final_decision(player_cards, dealer_cards, DECK):
-    win_amount = -1
+                    split_index = split_depth + 1
+                    player_hands.extend([split_hand])
+                    player_turn(player_hands, dealer_hand, DECK, decision_chart, split_index)
+                    
 
-    while (get_hand_value(dealer_cards) < 17):
-        dealer_cards.extend(DECK.pop())
+    return 0
 
-    #print("Dealer Hand" + str(dealer_cards))
+def final_decision(player_hand, dealer_cards, DECK):
+    win_amount = -9999
 
-    dealer_value = get_hand_value(dealer_cards)
-    player_value = get_hand_value(player_cards)
-    
-    if (dealer_value == 22 and rules.STAND_22): # If casino has stand 22 rule (so fking stupid)
-        win_amount = 0
-        #print("Standing 22")
-    elif (dealer_value > 21): # Dealer Busts
-        win_amount = 1
-        #print("Player Wins! dealer busts")
-        if (player_value == 21): # Catch blackjack for casinos that don't payout instant
-            win_amount = rules.BJ_PAYOUT
-            #print("Blackjack!")
-    elif (dealer_value == player_value): # Stand off
-        win_amount = 0
-        #print("Standing")
-    elif (dealer_value < player_value): # Player Wins
-        win_amount = 1
-        #print("Player Wins!")
-        if (player_value == 21): # Catch blackjack for casinos that don't payout instant
-            win_amount = rules.BJ_PAYOUT
-            #print("Blackjack!")
-        #print("Dealer wins you lose!")
+    if (player_hand.status == Hand.BUSTED):
+        #print("Player lose: From bust")
+        win_amount = player_hand.win_amount * -1
+    elif (player_hand.status == Hand.WIN):
+        #print("Player wins: Instant win")
+        win_amount = player_hand.win_amount
+    else:
+        dealer_value = get_hand_value(dealer_cards)
+        player_value = get_hand_value(player_hand.cards)
+        
+        if (dealer_value == 22 and rules.STAND_22): # If casino has stand 22 rule (so fking stupid)
+            win_amount = 0
+            #print("No winner: Standing 22")
+        elif (dealer_value > 21): # Dealer Busts
+            win_amount = player_hand.win_amount
+            #print("Player wins: dealer busts")
+        elif (dealer_value == player_value): # Stand off
+            win_amount = 0
+            #print("No winner: Standing")
+        elif (dealer_value < player_value): # Player Wins
+            #print("Player wins: Dealer has less than player")
+            win_amount = player_hand.win_amount
+        else:
+            #print("Player loses: Dealer has higher than player")
+            win_amount = player_hand.win_amount * -1
+        
     # Otherwise player loses
 
     return win_amount

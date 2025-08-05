@@ -3,13 +3,29 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from core.logic import *
+from core.simulation import *
+from interface.file_io import *
 
-print("Running tests...")
 
-#If deck is 1 then impossible to have hands such as [A,2,2,2,2,2] as there is not enough 2's
-player_hand = ['A', '2', '2', '2', '2']
-dealer_card = ['7']
+DECK = ['A', 'A','4','A','A']
 
-win, lose, push = hitting_tree(player_hand, dealer_card)
+print(get_hand_value(['A','A']))
 
-print(str(win) +","+ str(lose)+ ","+str(lose))
+decision_chart = json_to_dict("../data/decisions.json")
+player_cards = []
+dealer_cards = []
+
+print("---------------------------------")
+player_cards.extend(DECK.pop())
+player_cards.extend(DECK.pop())
+
+dealer_cards.extend(DECK.pop())
+
+print("Player hand: " + str(player_cards) + "Dealer hand: " + str(dealer_cards))
+#print("Cards in deck: " + str(len(DECK)))
+
+win_amount = game_loop(player_cards, dealer_cards, DECK, decision_chart)
+
+balance += win_amount * wager 
+print("Balance, " + str(balance))
+
